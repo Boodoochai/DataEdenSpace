@@ -1,20 +1,26 @@
 """
 graph that represents universe
 """
-from collections import defaultdict
 
 from Planet import Planet
 from UniverseEdge import UniverseEdge
 
 
 class Universe:
-    graph: defaultdict[Planet, set[UniverseEdge]]
+    graph: dict[Planet, list[UniverseEdge]]
 
     def __init__(self):
-        self.graph = defaultdict(set)
+        self.graph = dict()
 
     def add_edge(self, edge: UniverseEdge) -> None:
-        self.graph[edge.start].add(edge)
+        if edge.start not in self.graph:
+            self.graph[edge.start] = list()
+        if edge.end not in self.graph:
+            self.graph[edge.end] = list()
+        self.graph[edge.start].append(edge)
+
+    def remove_edge(self, edge: UniverseEdge) -> None:
+        self.graph[edge.start].remove(edge)
 
     def add_planet(self, planet: Planet) -> None:
-        self.graph[planet] = set()
+        self.graph[planet] = list()

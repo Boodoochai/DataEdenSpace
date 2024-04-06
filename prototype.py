@@ -14,3 +14,8 @@ print(response.json())
 # response = requests.post(URL + '/player/travel', json=payload, headers={"X-Auth-Token": AUTH_TOKEN})
 #
 # print(response.json())
+
+response = requests.delete(URL + '/player/reset', headers={"X-Auth-Token": AUTH_TOKEN})
+
+print(response.status_code)
+print(response.json())
