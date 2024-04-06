@@ -124,9 +124,16 @@ class Interactor:
         if is_collected and is_cleaned:
             most_distant_not_cleaned_planet.is_cleaned = True
 
-        path_to_eden = self.make_path_between_planets(most_distant_not_cleaned_planet, self.eden)
-        self.go_by_path(path_to_eden)
-        self.ship.garbage = list()
+        fil = 0
+        for gar in self.ship.garbage:
+            fil += len(gar)
+
+        if fil / (self.ship.capacity_y * self.ship.capacity_x) < 80:
+            self.clean_most_distant_planet()
+        else:
+            path_to_eden = self.make_path_between_planets(most_distant_not_cleaned_planet, self.eden)
+            self.go_by_path(path_to_eden)
+            self.ship.garbage = list()
 
     def make_path_to_nearest_planet(self, start_planet: Planet, visited_planets: set[Planet]) -> Planet:
         dists: dict[Planet, int] = dict()
