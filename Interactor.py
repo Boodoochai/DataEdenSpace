@@ -1,6 +1,7 @@
 import copy
 import heapq
 import math
+import random
 from collections import deque
 
 import requests
@@ -65,7 +66,7 @@ class Interactor:
         else:
             print('Already on Eden.')
 
-        self.filter_universe()
+        # self.filter_universe()
         print('Filtered unreachable planets. Some info:')
         print('Universe planets number:', len(self.universe.graph))
 
@@ -103,7 +104,8 @@ class Interactor:
     def clean_most_distant_planet(self) -> None:
         used: set[Planet] = set()
 
-        path = self.make_path_to_most_distant_not_cleaned_planet()
+        path = self.make_path_to_nearest_planet(self.ship.position, set())
+        path = self.make_path_between_planets(self.ship.position, path)
         most_distant_not_cleaned_planet = path[-1]
         garbage_on_planet = self.go_by_path(path)
 
@@ -142,12 +144,12 @@ class Interactor:
             if planet_dist != dists[cur_planet]:
                 continue
             for edge in self.universe.graph[cur_planet]:
-                if edge.end not in visited_planets and (
-                        edge.end not in dists or dists[edge.end] > dists[cur_planet] + edge.transfer_cost):
+                if edge.end not in dists or dists[edge.end] > dists[cur_planet] + edge.transfer_cost:
                     dists[edge.end] = dists[cur_planet] + edge.transfer_cost
                     heapq.heappush(que, [dists[edge.end], edge.end])
                     parent[edge.end] = cur_planet
-                    if not edge.end.is_cleaned and dists[edge.end] < dust_of_best_planet:
+                    if edge.end not in visited_planets and not edge.end.is_cleaned and dists[
+                        edge.end] < dust_of_best_planet:
                         dust_of_best_planet = dists[edge.end]
                         best_planet = edge.end
         return best_planet
@@ -178,18 +180,29 @@ class Interactor:
             print(garb.name, end=' ')
         print()
 
-        placed_garb_num = 0
-        for garbage in all_garbage:
-            flag = False
-            for x in range(0, self.ship.capacity_x - 4 + 1):
-                for y in range(0, self.ship.capacity_y - 4 + 1):
-                    if not self.is_four_by_four_contains_garbage(x, y):
-                        self.place_garbage(garbage, x, y)
-                        placed_garb_num += 1
-                        flag = True
+        max_placed_gab_num = 0
+        ans = None
+        for _ in range(100):
+            random.shuffle(all_garbage)
+            placed_garb_num = 0
+            for garbage in all_garbage:
+                flag = False
+                for x in range(0, self.ship.capacity_x - 4 + 1):
+                    for y in range(0, self.ship.capacity_y - 4 + 1):
+                        if self.is_fit_garbage(x, y, garbage):
+                            self.place_garbage(garbage, x, y)
+                            placed_garb_num += 1
+                            flag = True
+                            break
+                    if flag:
                         break
-                if flag:
-                    break
+            if placed_garb_num > max_placed_gab_num:
+                max_placed_gab_num = placed_garb_num
+                ans = copy.deepcopy(self.ship.garbage)
+                self.ship.garbage = list()
+
+        self.ship.garbage = ans
+        placed_garb_num = max_placed_gab_num
 
         garb_in_inv_after = 0
         for garbage in self.ship.garbage:
@@ -243,6 +256,14 @@ class Interactor:
                 if (x_cord <= point.x < x_cord + 4) and (y_cord <= point.y < y_cord + 4):
                     return True
         return False
+
+    def is_fit_garbage(self, x_cord: int, y_cord: int, garbage_to_fit: Garbage):
+        for garbage in self.ship.garbage:
+            for point in garbage.shape:
+                for point_gar in garbage_to_fit.shape:
+                    if point.x == point_gar.x + x_cord and point.y == point_gar.y + y_cord:
+                        return False
+        return True
 
     def collect_garbage_from_plannet(self, garbage_on_planet: list[Garbage]) -> tuple[bool, bool]:
         # TODO : may be needs to return something more
@@ -389,6 +410,13 @@ class Interactor:
         return name_list
 
     def go_by_path(self, path: list[Planet]) -> list[Garbage]:
+        for edge in self.universe.graph[self.ship.position]:
+            if edge.start == self.ship.position and edge.end == path[0]:
+                edge.transfer_cost += 10
+        for i in range(len(path) - 1):
+            for edge in self.universe.graph[path[i]]:
+                if edge.start == path[i] and edge.end == path[i + 1]:
+                    edge.transfer_cost += 10
         print('Going by path: ', end='')
         for planet in path:
             print(planet.name, end=' ')
@@ -398,7 +426,10 @@ class Interactor:
         headers = {}
         Interactor.add_auth_token_to_headers(headers)
         response = requests.post(Config.POST_TRAVEL_URL, json=payload, headers=headers)
-        response_json = response.json()
+        try:
+            response_json = response.json()
+        except requests.exceptions.JSONDecodeError:
+            return list()
 
         if response.status_code != 200:
             print('FAILED post:', Config.POST_TRAVEL_URL)
